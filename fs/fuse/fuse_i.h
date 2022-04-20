@@ -260,6 +260,7 @@ struct fuse_args {
 	bool nocreds:1;
 	bool in_pages:1;
 	bool out_pages:1;
+	bool user_pages:1;
 	bool out_argvar:1;
 	bool page_zeroing:1;
 	bool page_replace:1;
@@ -353,10 +354,6 @@ struct fuse_req {
 
 	/** refcount */
 	refcount_t count;
-
-	/** Unique ID for the interrupt request */
-	u64 intr_unique;
-	bool user_pages;
 
 	/* Request flags, updated with test/set/clear_bit() */
 	unsigned long flags;
