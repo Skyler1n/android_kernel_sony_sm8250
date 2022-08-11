@@ -391,6 +391,22 @@ __weak unsigned long glk_cal_freq(struct cpufreq_policy *policy,
 #endif
 
 #define TARGET_LOAD 80
+#ifdef CONFIG_CPUFREQ_GOV_SCHEDUTIL_WALT_AWARE
+static inline int walt_map_util_freq(unsigned long util,
+					struct sugov_policy *sg_policy,
+					unsigned long cap, int cpu)
+{
+	return 0;
+}
+
+__weak unsigned long glk_cal_freq(struct cpufreq_policy *policy,
+		unsigned long util, unsigned long max)
+{
+	return 0;
+}
+#endif
+
+#define TARGET_LOAD 80
 /**
  * get_next_freq - Compute a new frequency for a given cpufreq policy.
  * @sg_policy: schedutil policy object to compute the new frequency for.
