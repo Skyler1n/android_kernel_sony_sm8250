@@ -6029,33 +6029,11 @@ static int fg_psy_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-#if !defined(CONFIG_SOMC_CHARGER_EXTENSION)
-		if (chip->cl->active) {
-			pr_warn("Capacity learning active!\n");
-			return 0;
-		}
-		if (pval->intval <= 0 || pval->intval > chip->cl->nom_cap_uah) {
-			pr_err("charge_full is out of bounds\n");
-			return -EINVAL;
-		}
 		mutex_lock(&chip->cl->lock);
 		rc = fg_gen4_store_learned_capacity(chip, pval->intval);
 		if (!rc)
 			chip->cl->learned_cap_uah = pval->intval;
 		mutex_unlock(&chip->cl->lock);
-#endif
-#if defined(CONFIG_SOMC_CHARGER_EXTENSION)
-		mutex_lock(&chip->cl->lock);
-		chip->cl->learned_cap_uah = pval->intval;
-		cap_learning_somc_limit_learned_cap(chip->cl);
-		rc = fg_gen4_store_learned_capacity(chip,
-				chip->cl->learned_cap_uah);
-		mutex_unlock(&chip->cl->lock);
-		if (chip->cl->learned_cap_uah == chip->cl->nom_cap_uah)
-			fg_restart(fg, SOC_READY_WAIT_TIME_MS);
-		if (chip->cl->active)
-			cap_learning_abort(chip->cl);
-#endif
 		break;
 	case POWER_SUPPLY_PROP_CC_STEP:
 		if ((chip->ttf->cc_step.sel >= 0) &&
