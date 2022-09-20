@@ -9,10 +9,6 @@
 #ifndef _FS_FUSE_I_H
 #define _FS_FUSE_I_H
 
-#ifndef pr_fmt
-# define pr_fmt(fmt) "fuse: " fmt
-#endif
-
 #include <linux/fuse.h>
 #include <linux/fs.h>
 #include <linux/mount.h>
