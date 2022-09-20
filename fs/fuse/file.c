@@ -3035,16 +3035,6 @@ fuse_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 	return ret;
 }
 
-static int fuse_writeback_range(struct inode *inode, loff_t start, loff_t end)
-{
-	int err = filemap_write_and_wait_range(inode->i_mapping, start, end);
-
-	if (!err)
-		fuse_sync_writes(inode);
-
-	return err;
-}
-
 static long fuse_file_fallocate(struct file *file, int mode, loff_t offset,
 				loff_t length)
 {
@@ -3073,10 +3063,12 @@ static long fuse_file_fallocate(struct file *file, int mode, loff_t offset,
 		inode_lock(inode);
 		if (mode & FALLOC_FL_PUNCH_HOLE) {
 			loff_t endbyte = offset + length - 1;
-
-			err = fuse_writeback_range(inode, offset, endbyte);
+			err = filemap_write_and_wait_range(inode->i_mapping,
+							   offset, endbyte);
 			if (err)
 				goto out;
+
+			fuse_sync_writes(inode);
 		}
 	}
 
@@ -3158,7 +3150,10 @@ static ssize_t fuse_copy_file_range(struct file *file_in, loff_t pos_in,
 
 	if (fc->writeback_cache) {
 		inode_lock(inode_in);
-		err = fuse_writeback_range(inode_in, pos_in, pos_in + len);
+		err = filemap_write_and_wait_range(inode_in->i_mapping,
+						   pos_in, pos_in + len);
+		if (!err)
+			fuse_sync_writes(inode_in);
 		inode_unlock(inode_in);
 		if (err)
 			return err;
@@ -3167,9 +3162,12 @@ static ssize_t fuse_copy_file_range(struct file *file_in, loff_t pos_in,
 	inode_lock(inode_out);
 
 	if (fc->writeback_cache) {
-		err = fuse_writeback_range(inode_out, pos_out, pos_out + len);
+		err = filemap_write_and_wait_range(inode_out->i_mapping,
+						   pos_out, pos_out + len);
 		if (err)
 			goto out;
+
+		fuse_sync_writes(inode_out);
 	}
 
 	if (is_unstable)
