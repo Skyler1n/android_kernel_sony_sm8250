@@ -557,7 +557,7 @@ struct fuse_conn {
 	struct fuse_iqueue iq;
 
 	/** The next unique kernel file handle */
-	atomic64_t khctr;
+	u64 khctr;
 
 	/** rbtree of fuse_files waiting for poll events indexed by ph */
 	struct rb_root polled_files;

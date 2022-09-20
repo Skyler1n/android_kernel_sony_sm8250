@@ -65,7 +65,9 @@ struct fuse_file *fuse_file_alloc(struct fuse_conn *fc)
 	RB_CLEAR_NODE(&ff->polled_node);
 	init_waitqueue_head(&ff->poll_wait);
 
-	ff->kh = atomic64_inc_return(&fc->khctr);
+	spin_lock(&fc->lock);
+	ff->kh = ++fc->khctr;
+	spin_unlock(&fc->lock);
 
 	return ff;
 }
