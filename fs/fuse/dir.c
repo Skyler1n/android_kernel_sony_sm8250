@@ -207,9 +207,9 @@ static int fuse_dentry_revalidate(struct dentry *entry, unsigned int flags)
 				fuse_queue_forget(fc, forget, outarg.nodeid, 1);
 				goto invalid;
 			}
-			spin_lock(&fi->lock);
+			spin_lock(&fc->lock);
 			fi->nlookup++;
-			spin_unlock(&fi->lock);
+			spin_unlock(&fc->lock);
 		}
 		kfree(forget);
 		if (ret == -ENOMEM)
