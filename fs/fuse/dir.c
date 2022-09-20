@@ -14,7 +14,6 @@
 #include <linux/namei.h>
 #include <linux/slab.h>
 #include <linux/xattr.h>
-#include <linux/iversion.h>
 #include <linux/posix_acl.h>
 
 static void fuse_advise_use_readdirplus(struct inode *dir)
@@ -88,12 +87,6 @@ u64 entry_attr_timeout(struct fuse_entry_out *o)
 void fuse_invalidate_attr(struct inode *inode)
 {
 	get_fuse_inode(inode)->i_time = 0;
-}
-
-static void fuse_dir_changed(struct inode *dir)
-{
-	fuse_invalidate_attr(dir);
-	inode_maybe_inc_iversion(dir, false);
 }
 
 /**
@@ -502,7 +495,7 @@ static int fuse_create_open(struct inode *dir, struct dentry *entry,
 	kfree(forget);
 	d_instantiate(entry, inode);
 	fuse_change_entry_timeout(entry, &outentry);
-	fuse_dir_changed(dir);
+	fuse_invalidate_attr(dir);
 	err = finish_open(file, entry, generic_file_open);
 	if (err) {
 		fuse_sync_release(ff, flags);
@@ -616,7 +609,7 @@ static int create_new_entry(struct fuse_conn *fc, struct fuse_args *args,
 	} else {
 		fuse_change_entry_timeout(entry, &outarg);
 	}
-	fuse_dir_changed(dir);
+	fuse_invalidate_attr(dir);
 	return 0;
 
  out_put_forget_req:
@@ -726,7 +719,7 @@ static int fuse_unlink(struct inode *dir, struct dentry *entry)
 			drop_nlink(inode);
 		spin_unlock(&fc->lock);
 		fuse_invalidate_attr(inode);
-		fuse_dir_changed(dir);
+		fuse_invalidate_attr(dir);
 		fuse_invalidate_entry_cache(entry);
 		fuse_update_ctime(inode);
 	} else if (err == -EINTR)
@@ -748,7 +741,7 @@ static int fuse_rmdir(struct inode *dir, struct dentry *entry)
 	err = fuse_simple_request(fc, &args);
 	if (!err) {
 		clear_nlink(d_inode(entry));
-		fuse_dir_changed(dir);
+		fuse_invalidate_attr(dir);
 		fuse_invalidate_entry_cache(entry);
 	} else if (err == -EINTR)
 		fuse_invalidate_entry(entry);
@@ -787,9 +780,9 @@ static int fuse_rename_common(struct inode *olddir, struct dentry *oldent,
 			fuse_update_ctime(d_inode(newent));
 		}
 
-		fuse_dir_changed(olddir);
+		fuse_invalidate_attr(olddir);
 		if (olddir != newdir)
-			fuse_dir_changed(newdir);
+			fuse_invalidate_attr(newdir);
 
 		/* newent will end up negative */
 		if (!(flags & RENAME_EXCHANGE) && d_really_is_positive(newent)) {
@@ -1024,7 +1017,7 @@ int fuse_reverse_inval_entry(struct super_block *sb, u64 parent_nodeid,
 	if (!entry)
 		goto unlock;
 
-	fuse_dir_changed(parent);
+	fuse_invalidate_attr(parent);
 	fuse_invalidate_entry(entry);
 
 	if (child_nodeid != 0 && d_really_is_positive(entry)) {
