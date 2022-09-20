@@ -26,13 +26,6 @@ static bool fuse_use_readdirplus(struct inode *dir, struct dir_context *ctx)
 	return false;
 }
 
-static bool fuse_emit(struct file *file, struct dir_context *ctx,
-		      struct fuse_dirent *dirent)
-{
-	return dir_emit(ctx, dirent->name, dirent->namelen, dirent->ino,
-			dirent->type);
-}
-
 static int parse_dirfile(char *buf, size_t nbytes, struct file *file,
 			 struct dir_context *ctx)
 {
@@ -46,7 +39,8 @@ static int parse_dirfile(char *buf, size_t nbytes, struct file *file,
 		if (memchr(dirent->name, '/', dirent->namelen) != NULL)
 			return -EIO;
 
-		if (!fuse_emit(file, ctx, dirent))
+		if (!dir_emit(ctx, dirent->name, dirent->namelen,
+			       dirent->ino, dirent->type))
 			break;
 
 		buf += reclen;
@@ -189,7 +183,8 @@ static int parse_dirplusfile(char *buf, size_t nbytes, struct file *file,
 			   we need to send a FORGET for each of those
 			   which we did not link.
 			*/
-			over = !fuse_emit(file, ctx, dirent);
+			over = !dir_emit(ctx, dirent->name, dirent->namelen,
+				       dirent->ino, dirent->type);
 			if (!over)
 				ctx->pos = dirent->off;
 		}
