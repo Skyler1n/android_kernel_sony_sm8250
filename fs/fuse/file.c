@@ -1271,14 +1271,14 @@ out:
 	return written ? written : err;
 }
 
-static inline void fuse_page_descs_length_init(struct fuse_page_desc *descs,
-					       unsigned int index,
-					       unsigned int nr_pages)
+static inline void fuse_page_descs_length_init(struct fuse_req *req,
+		unsigned index, unsigned nr_pages)
 {
 	int i;
 
 	for (i = index; i < index + nr_pages; i++)
-		descs[i].length = PAGE_SIZE - descs[i].offset;
+		req->page_descs[i].length = PAGE_SIZE -
+			req->page_descs[i].offset;
 }
 
 static inline unsigned long fuse_get_user_addr(const struct iov_iter *ii)
@@ -1330,8 +1330,7 @@ static int fuse_get_user_pages(struct fuse_req *req, struct iov_iter *ii,
 		npages = (ret + PAGE_SIZE - 1) / PAGE_SIZE;
 
 		req->page_descs[req->num_pages].offset = start;
-		fuse_page_descs_length_init(req->page_descs, req->num_pages,
-					    npages);
+		fuse_page_descs_length_init(req, req->num_pages, npages);
 
 		req->num_pages += npages;
 		req->page_descs[req->num_pages - 1].length -=
@@ -2588,14 +2587,14 @@ long fuse_do_ioctl(struct file *file, unsigned int cmd, unsigned long arg,
 		.flags = flags
 	};
 	struct fuse_ioctl_out outarg;
+	struct fuse_req *req = NULL;
+	struct page **pages = NULL;
 	struct iovec *iov_page = NULL;
 	struct iovec *in_iov = NULL, *out_iov = NULL;
-	unsigned int in_iovs = 0, out_iovs = 0, max_pages;
-	size_t in_size, out_size, c;
-	ssize_t transferred;
+	unsigned int in_iovs = 0, out_iovs = 0, num_pages = 0, max_pages;
+	size_t in_size, out_size, transferred, c;
 	int err, i;
 	struct iov_iter ii;
-	struct fuse_args_pages ap = {};
 
 #if BITS_PER_LONG == 32
 	inarg.flags |= FUSE_IOCTL_32BIT;
@@ -2613,12 +2612,10 @@ long fuse_do_ioctl(struct file *file, unsigned int cmd, unsigned long arg,
 	BUILD_BUG_ON(sizeof(struct fuse_ioctl_iovec) * FUSE_IOCTL_MAX_IOV > PAGE_SIZE);
 
 	err = -ENOMEM;
-	ap.pages = fuse_pages_alloc(fc->max_pages, GFP_KERNEL, &ap.descs);
+	pages = kcalloc(fc->max_pages, sizeof(pages[0]), GFP_KERNEL);
 	iov_page = (struct iovec *) __get_free_page(GFP_KERNEL);
-	if (!ap.pages || !iov_page)
+	if (!pages || !iov_page)
 		goto out;
-
-	fuse_page_descs_length_init(ap.descs, 0, fc->max_pages);
 
 	/*
 	 * If restricted, initialize IO parameters as encoded in @cmd.
@@ -2665,44 +2662,56 @@ long fuse_do_ioctl(struct file *file, unsigned int cmd, unsigned long arg,
 	err = -ENOMEM;
 	if (max_pages > fc->max_pages)
 		goto out;
-	while (ap.num_pages < max_pages) {
-		ap.pages[ap.num_pages] = alloc_page(GFP_KERNEL | __GFP_HIGHMEM);
-		if (!ap.pages[ap.num_pages])
+	while (num_pages < max_pages) {
+		pages[num_pages] = alloc_page(GFP_KERNEL | __GFP_HIGHMEM);
+		if (!pages[num_pages])
 			goto out;
-		ap.num_pages++;
+		num_pages++;
 	}
 
+	req = fuse_get_req(fc, num_pages);
+	if (IS_ERR(req)) {
+		err = PTR_ERR(req);
+		req = NULL;
+		goto out;
+	}
+	memcpy(req->pages, pages, sizeof(req->pages[0]) * num_pages);
+	req->num_pages = num_pages;
+	fuse_page_descs_length_init(req, 0, req->num_pages);
 
 	/* okay, let's send it to the client */
-	ap.args.opcode = FUSE_IOCTL;
-	ap.args.nodeid = ff->nodeid;
-	ap.args.in_numargs = 1;
-	ap.args.in_args[0].size = sizeof(inarg);
-	ap.args.in_args[0].value = &inarg;
+	req->in.h.opcode = FUSE_IOCTL;
+	req->in.h.nodeid = ff->nodeid;
+	req->in.numargs = 1;
+	req->in.args[0].size = sizeof(inarg);
+	req->in.args[0].value = &inarg;
 	if (in_size) {
-		ap.args.in_numargs++;
-		ap.args.in_args[1].size = in_size;
-		ap.args.in_pages = true;
+		req->in.numargs++;
+		req->in.args[1].size = in_size;
+		req->in.argpages = 1;
 
 		err = -EFAULT;
 		iov_iter_init(&ii, WRITE, in_iov, in_iovs, in_size);
-		for (i = 0; iov_iter_count(&ii) && !WARN_ON(i >= ap.num_pages); i++) {
-			c = copy_page_from_iter(ap.pages[i], 0, PAGE_SIZE, &ii);
+		for (i = 0; iov_iter_count(&ii) && !WARN_ON(i >= num_pages); i++) {
+			c = copy_page_from_iter(pages[i], 0, PAGE_SIZE, &ii);
 			if (c != PAGE_SIZE && iov_iter_count(&ii))
 				goto out;
 		}
 	}
 
-	ap.args.out_numargs = 2;
-	ap.args.out_args[0].size = sizeof(outarg);
-	ap.args.out_args[0].value = &outarg;
-	ap.args.out_args[1].size = out_size;
-	ap.args.out_pages = true;
-	ap.args.out_argvar = true;
+	req->out.numargs = 2;
+	req->out.args[0].size = sizeof(outarg);
+	req->out.args[0].value = &outarg;
+	req->out.args[1].size = out_size;
+	req->out.argpages = 1;
+	req->out.argvar = 1;
 
-	transferred = fuse_simple_request(fc, &ap.args);
-	err = transferred;
-	if (transferred < 0)
+	fuse_request_send(fc, req);
+	err = req->out.h.error;
+	transferred = req->out.args[1].size;
+	fuse_put_request(fc, req);
+	req = NULL;
+	if (err)
 		goto out;
 
 	/* did it ask for retry? */
@@ -2727,7 +2736,7 @@ long fuse_do_ioctl(struct file *file, unsigned int cmd, unsigned long arg,
 		    in_iovs + out_iovs > FUSE_IOCTL_MAX_IOV)
 			goto out;
 
-		vaddr = kmap_atomic(ap.pages[0]);
+		vaddr = kmap_atomic(pages[0]);
 		err = fuse_copy_ioctl_iovec(fc, iov_page, vaddr,
 					    transferred, in_iovs + out_iovs,
 					    (flags & FUSE_IOCTL_COMPAT) != 0);
@@ -2755,17 +2764,19 @@ long fuse_do_ioctl(struct file *file, unsigned int cmd, unsigned long arg,
 
 	err = -EFAULT;
 	iov_iter_init(&ii, READ, out_iov, out_iovs, transferred);
-	for (i = 0; iov_iter_count(&ii) && !WARN_ON(i >= ap.num_pages); i++) {
-		c = copy_page_to_iter(ap.pages[i], 0, PAGE_SIZE, &ii);
+	for (i = 0; iov_iter_count(&ii) && !WARN_ON(i >= num_pages); i++) {
+		c = copy_page_to_iter(pages[i], 0, PAGE_SIZE, &ii);
 		if (c != PAGE_SIZE && iov_iter_count(&ii))
 			goto out;
 	}
 	err = 0;
  out:
+	if (req)
+		fuse_put_request(fc, req);
 	free_page((unsigned long) iov_page);
-	while (ap.num_pages)
-		__free_page(ap.pages[--ap.num_pages]);
-	kfree(ap.pages);
+	while (num_pages)
+		__free_page(pages[--num_pages]);
+	kfree(pages);
 
 	return err ? err : outarg.result;
 }
