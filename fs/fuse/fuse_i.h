@@ -717,11 +717,6 @@ static inline u64 get_node_id(struct inode *inode)
 	return get_fuse_inode(inode)->nodeid;
 }
 
-static inline int invalid_nodeid(u64 nodeid)
-{
-	return !nodeid || nodeid == FUSE_ROOT_ID;
-}
-
 /** Device operations */
 extern const struct file_operations fuse_dev_operations;
 
@@ -732,6 +727,7 @@ extern const struct dentry_operations fuse_root_dentry_operations;
  * Inode to nodeid comparison.
  */
 int fuse_inode_eq(struct inode *inode, void *_nodeidp);
+
 /**
  * Get a filled in inode
  */
@@ -895,9 +891,6 @@ void fuse_invalidate_entry_cache(struct dentry *entry);
 
 void fuse_invalidate_atime(struct inode *inode);
 
-u64 entry_attr_timeout(struct fuse_entry_out *o);
-void fuse_change_entry_timeout(struct dentry *entry, struct fuse_entry_out *o);
-
 /**
  * Acquire reference to fuse_conn
  */
@@ -1018,9 +1011,5 @@ extern const struct xattr_handler *fuse_no_acl_xattr_handlers[];
 struct posix_acl;
 struct posix_acl *fuse_get_acl(struct inode *inode, int type);
 int fuse_set_acl(struct inode *inode, struct posix_acl *acl, int type);
-
-
-/* readdir.c */
-int fuse_readdir(struct file *file, struct dir_context *ctx);
 
 #endif /* _FS_FUSE_I_H */
