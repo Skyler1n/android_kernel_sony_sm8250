@@ -125,8 +125,7 @@ int fuse_do_open(struct fuse_conn *fc, u64 nodeid, struct file *file,
 		return -ENOMEM;
 
 	ff->fh = 0;
-	/* Default for no-open */
-	ff->open_flags = FOPEN_KEEP_CACHE | (isdir ? FOPEN_CACHE_DIR : 0);
+	ff->open_flags = FOPEN_KEEP_CACHE; /* Default for no-open */
 	if (isdir ? !fc->no_opendir : !fc->no_open) {
 		struct fuse_open_out outarg;
 		int err;
