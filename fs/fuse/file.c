@@ -20,8 +20,8 @@
 #include <linux/uio.h>
 #include <linux/fs.h>
 
-static struct page **fuse_pages_alloc(unsigned int npages, gfp_t flags,
-				      struct fuse_page_desc **desc)
+struct page **fuse_pages_alloc(unsigned int npages, gfp_t flags,
+			       struct fuse_page_desc **desc)
 {
 	struct page **pages;
 
