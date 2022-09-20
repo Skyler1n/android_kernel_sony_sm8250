@@ -383,13 +383,14 @@ static void fuse_umount_begin(struct super_block *sb)
 
 static void fuse_send_destroy(struct fuse_conn *fc)
 {
-	if (fc->conn_init) {
-		FUSE_ARGS(args);
-
-		args.opcode = FUSE_DESTROY;
-		args.force = true;
-		args.nocreds = true;
-		fuse_simple_request(fc, &args);
+	struct fuse_req *req = fc->destroy_req;
+	if (req && fc->conn_init) {
+		fc->destroy_req = NULL;
+		req->in.h.opcode = FUSE_DESTROY;
+		__set_bit(FR_FORCE, &req->flags);
+		__clear_bit(FR_BACKGROUND, &req->flags);
+		fuse_request_send(fc, req);
+		fuse_put_request(fc, req);
 	}
 }
 
@@ -636,6 +637,8 @@ EXPORT_SYMBOL_GPL(fuse_conn_init);
 void fuse_conn_put(struct fuse_conn *fc)
 {
 	if (refcount_dec_and_test(&fc->count)) {
+		if (fc->destroy_req)
+			fuse_request_free(fc->destroy_req);
 		put_pid_ns(fc->pid_ns);
 		put_user_ns(fc->user_ns);
 		fc->release(fc);
@@ -1165,7 +1168,6 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	fc->user_id = d.user_id;
 	fc->group_id = d.group_id;
 	fc->max_read = max_t(unsigned, 4096, d.max_read);
-	fc->destroy = is_bdev;
 
 	/* Used by get_root_inode() */
 	sb->s_fs_info = fc;
@@ -1183,6 +1185,12 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	if (!init_req)
 		goto err_put_root;
 	__set_bit(FR_BACKGROUND, &init_req->flags);
+
+	if (is_bdev) {
+		fc->destroy_req = fuse_request_alloc(0);
+		if (!fc->destroy_req)
+			goto err_free_init_req;
+	}
 
 	mutex_lock(&fuse_mutex);
 	err = -EINVAL;
@@ -1210,6 +1218,7 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 
  err_unlock:
 	mutex_unlock(&fuse_mutex);
+ err_free_init_req:
 	fuse_request_free(init_req);
  err_put_root:
 	dput(root_dentry);
@@ -1236,8 +1245,7 @@ static void fuse_sb_destroy(struct super_block *sb)
 	struct fuse_conn *fc = get_fuse_conn_super(sb);
 
 	if (fc) {
-		if (fc->destroy)
-			fuse_send_destroy(fc);
+		fuse_send_destroy(fc);
 
 		fuse_abort_conn(fc);
 		fuse_wait_aborted(fc);
