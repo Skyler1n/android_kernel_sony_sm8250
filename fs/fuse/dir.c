@@ -1203,6 +1203,7 @@ static int fuse_readlink_page(struct inode *inode, struct page *page)
 {
 	struct fuse_conn *fc = get_fuse_conn(inode);
 	struct fuse_req *req;
+	int err;
 
 	req = fuse_get_req(fc, 1);
 	if (IS_ERR(req))
@@ -1220,6 +1221,9 @@ static int fuse_readlink_page(struct inode *inode, struct page *page)
 	req->out.args[0].size = PAGE_SIZE - 1;
 	fuse_request_send(fc, req);
 	err = req->out.h.error;
+
+	if (fuse_is_bad(inode))
+		return ERR_PTR(-EIO);
 
 	if (!err) {
 		char *link = page_address(page);
