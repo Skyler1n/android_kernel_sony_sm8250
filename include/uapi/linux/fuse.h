@@ -125,9 +125,6 @@
  *
  *  7.29
  *  - add FUSE_NO_OPENDIR_SUPPORT flag
- *
- *  7.30
- *  - add FUSE_EXPLICIT_INVAL_DATA
  */
 
 #ifndef _LINUX_FUSE_H
@@ -163,7 +160,7 @@
 #define FUSE_KERNEL_VERSION 7
 
 /** Minor version number of this interface */
-#define FUSE_KERNEL_MINOR_VERSION 30
+#define FUSE_KERNEL_MINOR_VERSION 29
 
 /** The node ID of the root inode */
 #define FUSE_ROOT_ID 1
@@ -268,7 +265,6 @@ struct fuse_file_lock {
  * FUSE_MAX_PAGES: init_out.max_pages contains the max number of req pages
  * FUSE_CACHE_SYMLINKS: cache READLINK responses
  * FUSE_NO_OPENDIR_SUPPORT: kernel supports zero-message opendir
- * FUSE_EXPLICIT_INVAL_DATA: only invalidate cached pages on explicit request
  */
 #define FUSE_ASYNC_READ		(1 << 0)
 #define FUSE_POSIX_LOCKS	(1 << 1)
@@ -295,7 +291,6 @@ struct fuse_file_lock {
 #define FUSE_MAX_PAGES		(1 << 22)
 #define FUSE_CACHE_SYMLINKS	(1 << 23)
 #define FUSE_NO_OPENDIR_SUPPORT (1 << 24)
-#define FUSE_EXPLICIT_INVAL_DATA (1 << 25)
 
 /**
  * CUSE INIT request/reply flags
