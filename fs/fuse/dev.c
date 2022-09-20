@@ -46,6 +46,9 @@ static void fuse_request_init(struct fuse_req *req, struct page **pages,
 			      struct fuse_page_desc *page_descs,
 			      unsigned npages)
 {
+	memset(req, 0, sizeof(*req));
+	memset(pages, 0, sizeof(*pages) * npages);
+	memset(page_descs, 0, sizeof(*page_descs) * npages);
 	INIT_LIST_HEAD(&req->list);
 	INIT_LIST_HEAD(&req->intr_entry);
 	init_waitqueue_head(&req->waitq);
@@ -58,22 +61,28 @@ static void fuse_request_init(struct fuse_req *req, struct page **pages,
 
 static struct fuse_req *__fuse_request_alloc(unsigned npages, gfp_t flags)
 {
-	struct fuse_req *req = kmem_cache_zalloc(fuse_req_cachep, flags);
+	struct fuse_req *req = kmem_cache_alloc(fuse_req_cachep, flags);
 	if (req) {
-		struct page **pages = NULL;
-		struct fuse_page_desc *page_descs = NULL;
+		struct page **pages;
+		struct fuse_page_desc *page_descs;
 
-		if (npages > FUSE_REQ_INLINE_PAGES) {
-			pages = kzalloc(npages * (sizeof(*pages) +
-						  sizeof(*page_descs)), flags);
-			if (!pages) {
-				kmem_cache_free(fuse_req_cachep, req);
-				return NULL;
-			}
-			page_descs = (void *) pages + npages * sizeof(*pages);
-		} else if (npages) {
+		if (npages <= FUSE_REQ_INLINE_PAGES) {
 			pages = req->inline_pages;
 			page_descs = req->inline_page_descs;
+		} else {
+			pages = kmalloc_array(npages, sizeof(struct page *),
+					      flags);
+			page_descs =
+				kmalloc_array(npages,
+					      sizeof(struct fuse_page_desc),
+					      flags);
+		}
+
+		if (!pages || !page_descs) {
+			kfree(pages);
+			kfree(page_descs);
+			kmem_cache_free(fuse_req_cachep, req);
+			return NULL;
 		}
 
 		fuse_request_init(req, pages, page_descs, npages);
@@ -94,9 +103,10 @@ struct fuse_req *fuse_request_alloc_nofs(unsigned npages)
 
 void fuse_request_free(struct fuse_req *req)
 {
-	if (req->pages != req->inline_pages)
+	if (req->pages != req->inline_pages) {
 		kfree(req->pages);
-
+		kfree(req->page_descs);
+	}
 	kmem_cache_free(fuse_req_cachep, req);
 }
 
@@ -235,10 +245,8 @@ static void put_reserved_req(struct fuse_conn *fc, struct fuse_req *req)
 	struct file *file = req->stolen_file;
 	struct fuse_file *ff = file->private_data;
 
-	WARN_ON(req->max_pages);
 	spin_lock(&fc->lock);
-	memset(req, 0, sizeof(*req));
-	fuse_request_init(req, NULL, NULL, 0);
+	fuse_request_init(req, req->pages, req->page_descs, req->max_pages);
 	BUG_ON(ff->reserved_req);
 	ff->reserved_req = req;
 	wake_up_all(&fc->reserved_req_waitq);
