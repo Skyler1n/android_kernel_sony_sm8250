@@ -319,7 +319,6 @@ struct fuse_req {
 
 	/** Unique ID for the interrupt request */
 	u64 intr_unique;
-	bool user_pages;
 
 	/* Request flags, updated with test/set/clear_bit() */
 	unsigned long flags;
