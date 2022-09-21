@@ -98,6 +98,10 @@ struct sched_walt_cpu_load {
 	u64 ws;
 };
 
+#ifdef CONFIG_MIHW
+#define MI_BOOST         4
+#endif
+
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sched_ravg_window;
 

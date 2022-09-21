@@ -6899,9 +6899,6 @@ static int get_start_cpu(struct task_struct *p)
 		return start_cpu;
 	}
 
-	if (sync_boost && rd->mid_cap_orig_cpu != -1)
-		return rd->mid_cap_orig_cpu;
-
 #ifdef CONFIG_MIGT
 	if (game_super_task(p)) {
 		if(sysctl_boost_stask_to_big)
