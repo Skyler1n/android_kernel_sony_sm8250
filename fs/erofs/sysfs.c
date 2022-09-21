@@ -66,7 +66,6 @@ EROFS_ATTR_FEATURE(chunked_file);
 EROFS_ATTR_FEATURE(device_table);
 EROFS_ATTR_FEATURE(compr_head2);
 EROFS_ATTR_FEATURE(sb_chksum);
-EROFS_ATTR_FEATURE(ztailpacking);
 
 static struct attribute *erofs_feat_attrs[] = {
 	ATTR_LIST(zero_padding),
@@ -76,7 +75,6 @@ static struct attribute *erofs_feat_attrs[] = {
 	ATTR_LIST(device_table),
 	ATTR_LIST(compr_head2),
 	ATTR_LIST(sb_chksum),
-	ATTR_LIST(ztailpacking),
 	NULL,
 };
 
