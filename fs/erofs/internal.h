@@ -2,7 +2,6 @@
 /*
  * Copyright (C) 2017-2018 HUAWEI, Inc.
  *             https://www.huawei.com/
- * Copyright (C) 2021, Alibaba Cloud
  */
 #ifndef __EROFS_INTERNAL_H
 #define __EROFS_INTERNAL_H
@@ -253,10 +252,6 @@ struct erofs_inode {
 
 	union {
 		erofs_blk_t raw_blkaddr;
-		struct {
-			unsigned short	chunkformat;
-			unsigned char	chunkbits;
-		};
 #ifdef CONFIG_EROFS_FS_ZIP
 		struct {
 			unsigned short z_advise;
