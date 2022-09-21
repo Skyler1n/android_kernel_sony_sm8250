@@ -283,19 +283,21 @@ static int erofs_init_devices(struct super_block *sb,
 static int erofs_read_superblock(struct super_block *sb)
 {
 	struct erofs_sb_info *sbi;
-	struct erofs_buf buf = __EROFS_BUF_INITIALIZER;
+	struct page *page;
 	struct erofs_super_block *dsb;
 	unsigned int blkszbits;
 	void *data;
 	int ret;
 
-	data = erofs_read_metabuf(&buf, sb, 0, EROFS_KMAP);
-	if (IS_ERR(data)) {
+	page = read_mapping_page(sb->s_bdev->bd_inode->i_mapping, 0, NULL);
+	if (IS_ERR(page)) {
 		erofs_err(sb, "cannot read erofs superblock");
-		return PTR_ERR(data);
+		return PTR_ERR(page);
 	}
 
 	sbi = EROFS_SB(sb);
+
+	data = kmap(page);
 	dsb = (struct erofs_super_block *)(data + EROFS_SUPER_OFFSET);
 
 	ret = -EINVAL;
@@ -365,7 +367,8 @@ static int erofs_read_superblock(struct super_block *sb)
 	if (erofs_sb_has_ztailpacking(sbi))
 		erofs_info(sb, "EXPERIMENTAL compressed inline data feature in use. Use at your own risk!");
 out:
-	erofs_put_metabuf(&buf);
+	kunmap(page);
+	put_page(page);
 	return ret;
 }
 
