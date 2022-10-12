@@ -13105,6 +13105,7 @@ static inline void walt_check_for_rotation(struct rq *rq)
 }
 #endif
 
+#ifdef CONFIG_SCHED_WALT
 static DEFINE_RAW_SPINLOCK(migration_lock);
 void check_for_migration(struct rq *rq, struct task_struct *p)
 {
@@ -13146,5 +13147,7 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 		raw_spin_unlock(&migration_lock);
 	}
 }
-
+#else
+void check_for_migration(struct rq *rq, struct task_struct *p) { }
+#endif
 #endif /* CONFIG_SCHED_WALT */
