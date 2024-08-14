@@ -9,12 +9,12 @@ autopack=1
 #====================
 buildtype=clang
 timezone="Asia/Shanghai"
-build_device="pdx20x"
-kernel_name="Coleoptera-kernel-beta2-oss"
-defconfig_path="pdx20x_oss_defconfig"
-kbuild_build_user="pdx20x-oss"
-kbuild_build_host="Dedrimer"
-support="11, 12"
+build_device="edo"
+kernel_name="Aurora Skyline"
+defconfig_path="pdx20x_MIUI_defconfig"
+kbuild_build_user="Skyler1n"
+kbuild_build_host="HASEE Z8-TA7NP"
+support="11, 12, 13"
 #====================
 
 print (){
@@ -55,6 +55,7 @@ fi
         #git clone --depth=1 https://github.com/kdrag0n/proton-clang ${HOME}/cbl
     #else
         #git clone --depth=1 https://github.com/kdrag0n/proton-clang ${HOME}/cbl
+#my clang version https://android.googlesource.com/platform//prebuilts/clang/host/linux-x86/+/b669748458572622ed716407611633c5415da25c/clang-r416183b/
     #fi
 #fi
 
@@ -65,7 +66,7 @@ timedatectl set-timezone ${timezone}
 
 print "You are building version:${date}" yellow
 
-clang_path="${HOME}/cbl15/bin"
+clang_path="${HOME}/cbl/bin"
 gcc_path="/usr/bin/aarch64-linux-gnu-"
 gcc_32_path="/usr/bin/arm-linux-gnueabi-"
 

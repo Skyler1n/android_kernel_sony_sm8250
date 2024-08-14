@@ -1,4 +1,4 @@
-CONFIG_LOCALVERSION="-Coleoptera-oss-beta3"
+CONFIG_LOCALVERSION="-Perf-Longhorn"
 # CONFIG_LOCALVERSION_AUTO is not set
 # CONFIG_MIHW is not set
 # CONFIG_PACKAGE_RUNTIME_INFO is not set
